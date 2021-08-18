@@ -3,13 +3,13 @@ from methods import *
 
 def main():
     open_parameters_config_window()
-    cap = cv2.VideoCapture("20210807_133945.mp4")
-
+    cap = cv2.VideoCapture("demo4.mp4")
+    flag = True
     while True:
         success, frame = cap.read()
 
         if success:
-            frame = cv2.resize(frame, (640, 360))
+            frame = cv2.resize(frame, (360, 640))
             result = frame.copy()
 
             threshold1 = cv2.getTrackbarPos("Threshold1", "Parameters")
@@ -18,7 +18,14 @@ def main():
             frame_canny = get_canny_frame(frame.copy(), threshold1, threshold2)
 
             ball_area = get_ball_contours(frame_canny.copy(), result)
-            get_goal_lines(result, frame_canny.copy(), is_goal_horizontal=True, threshold_for_lines=100)
+            if (flag):
+                r, t = get_goal_lines(result, cv2.Canny(frame.copy(), threshold1, threshold2), is_goal_horizontal=True,
+                                      threshold_for_lines=200)
+                print(r)
+                print(t)
+                flag = False
+
+            draw_goal_lines(r, t, result, is_goal_horizontal=True)
 
             add_text_to_screen(result, ball_area)
 
