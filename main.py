@@ -1,4 +1,8 @@
-from methods import *
+from logicMethods import *
+from drawingMethods import *
+
+
+
 
 
 def main():
@@ -16,20 +20,24 @@ def main():
             threshold2 = cv2.getTrackbarPos("Threshold2", "Parameters")
 
             ball_mask = get_ball_mask(frame.copy())
-            center, radius = get_center_and_radius(ball_mask.copy())
-            if radius > 10:
-                draw_ball(center, radius, result)
+            ball_center, ball_radius = get_center_and_radius(ball_mask.copy())
+            if ball_radius > 10:
+                draw_ball(ball_center, ball_radius, result)
                 #TODO : here we would pass radius and center to is_goal function
             print("----")
-            print(center)
-            print(radius)
+            print(ball_center)
+            print(ball_radius)
 
             if is_first_frame:
-                r, t = get_goal_lines(result, cv2.Canny(frame.copy(), threshold1, threshold2), is_goal_horizontal=True,
+                r, theta = get_goal_lines(result, cv2.Canny(frame.copy(), threshold1, threshold2), is_goal_horizontal=True,
                                       threshold_for_lines=200)
                 is_first_frame = False
-            draw_goal_lines(r, t, result, is_goal_horizontal=True)
-            # add_text_to_screen(result, ball_area)
+
+            draw_goal_lines(r, theta, result, is_goal_horizontal=True)
+            goal_result = is_goal(r, theta, ball_radius, ball_center)
+            add_text_to_screen(result, goal_result)
+
+
             cv2.imshow("Result", result)
 
             k = cv2.waitKey(30) & 0xff
