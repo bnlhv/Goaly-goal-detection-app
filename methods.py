@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import math
+import imutils
 
 COLOR_MIN = np.array([0, 15, 10], np.uint8)
 COLOR_MAX = np.array([7, 255, 255], np.uint8)
@@ -43,7 +44,6 @@ def open_parameters_config_window():
 def draw_line(frame, theta, rho):
     if not isinstance(frame, np.ndarray):
         return None
-
     a = math.cos(theta)
     b = math.sin(theta)
     x0 = a * rho
@@ -93,10 +93,9 @@ def get_lines_from_accumulator(H, r_max, r_array, t_array, threshold_for_lines):
     r = []
     t = []
     for x, y in zip(xx, yy):
-        if (H[y, x] >= threshold_for_lines):
+        if H[y, x] >= threshold_for_lines:
             r.append(r_array[y])
             t.append(t_array[x])
-            # draw_line(frame, t_array[x], r_array[y])
     return r, t
 
 
@@ -106,7 +105,6 @@ def get_goal_lines(frame, frame_canny, is_goal_horizontal, threshold_for_lines):
     if not isinstance(frame_canny, np.ndarray):
         return None
 
-    # todo:Here we would create our own hough lines
     # get lines
     # lines = cv2.HoughLines(frame_canny, 1, np.pi / 180, threshold_for_lines, None, 0, 0)
 
@@ -116,66 +114,77 @@ def get_goal_lines(frame, frame_canny, is_goal_horizontal, threshold_for_lines):
     return get_lines_from_accumulator(H, r_max, r_array, t_array, threshold_for_lines)
 
 
-def draw_ball_contours(contour, frame, frame_contours):
-    if not isinstance(frame, np.ndarray):
-        return None
-    if not isinstance(frame_contours, np.ndarray):
-        return None
+# def draw_ball_contours(contour, frame, frame_contours):
+#     if not isinstance(frame, np.ndarray):
+#         return None
+#     if not isinstance(frame_contours, np.ndarray):
+#         return None
+#
+#     if cv2.isContourConvex(contour):
+#         frame_contours = cv2.convexHull(contour)
+#     else:
+#         (x, y), radius = cv2.minEnclosingCircle(contour)
+#         if np.pi * (radius ** 2) < 0.05 * frame.shape[0] * frame.shape[1]:
+#             center = (int(x), int(y))
+#             radius = int(radius)
+#             frame_contours = cv2.circle(frame_contours, center, radius, (0, 255, 0), 2)
 
-    if cv2.isContourConvex(contour):
-        frame_contours = cv2.convexHull(contour)
-    else:
-        (x, y), radius = cv2.minEnclosingCircle(contour)
-        if np.pi * (radius ** 2) < 0.05 * frame.shape[0] * frame.shape[1]:
-            center = (int(x), int(y))
-            radius = int(radius)
-            frame_contours = cv2.circle(frame_contours, center, radius, (0, 255, 0), 2)
 
-
-def get_ball_contours(frame, frame_contours):
-    if not isinstance(frame, np.ndarray):
-        return None
-    if not isinstance(frame_contours, np.ndarray):
+def get_center_and_radius(mask):
+    if not isinstance(mask, np.ndarray):
         return None
     # get contours
-    contours, hierarchy = cv2.findContours(frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    # draw contours
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        area_from_user = cv2.getTrackbarPos("Area", "Parameters")
-        if area > area_from_user:
-            draw_ball_contours(contour, frame, frame_contours)
+    # contours, hierarchy = cv2.findContours(frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # # draw contours
+    # for contour in contours:
+    #     area = cv2.contourArea(contour)
+    #     area_from_user = cv2.getTrackbarPos("Area", "Parameters")
+    #     if area > area_from_user:
+    #         draw_ball_contours(contour, frame, frame_contours)
+    # return area
+    center = None
+    radius = 0
+    contours = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
+                                cv2.CHAIN_APPROX_SIMPLE)
+    contours = imutils.grab_contours(contours)
 
-    return area
+    if len(contours) > 0:
+        c = max(contours, key=cv2.contourArea)
+        ((x, y), radius) = cv2.minEnclosingCircle(c)
+        M = cv2.moments(c)
+        center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+    return center, radius
 
 
-def draw_ball_hough_circle(x, y, r, frame, result):
-    if not isinstance(frame, np.ndarray):
-        return None
-    area_from_user = cv2.getTrackbarPos("Area", "Parameters")
-    area = np.pi * (r ** 2)
-    if area_from_user < area < (0.06 * frame.shape[0] * frame.shape[1]):
-        cv2.circle(result, (x, y), r, (255, 0, 0), 3)
+def draw_ball(center, radius, result):
+    cv2.circle(result, center, int(radius), (0, 255, 0), 2)
 
-    return area
+# def draw_ball_hough_circle(x, y, r, frame, result):
+#     if not isinstance(frame, np.ndarray):
+#         return None
+#     area_from_user = cv2.getTrackbarPos("Area", "Parameters")
+#     area = np.pi * (r ** 2)
+#     if area_from_user < area < (0.06 * frame.shape[0] * frame.shape[1]):
+#         cv2.circle(result, (x, y), r, (255, 0, 0), 3)
+#
+#     return area
 
 
-def get_ball_hough_circles(frame, result):
-    if not isinstance(frame, np.ndarray):
-        return None
-    # get circles
-    circles = cv2.HoughCircles(frame, method=cv2.HOUGH_GRADIENT, dp=1,
-                               minDist=frame.shape[1], param1=50, param2=7,
-                               minRadius=1, maxRadius=100)
-    # draw circles
-    if circles is not None:
-        circles = np.round(circles[0, :]).astype("int")
-        for (x, y, r) in circles:
-            area = \
-                (x, y, r, frame, result)
-
-    return area
-
+# def get_ball_hough_circles(frame, result):
+#     if not isinstance(frame, np.ndarray):
+#         return None
+#     # get circles
+#     circles = cv2.HoughCircles(frame, method=cv2.HOUGH_GRADIENT, dp=1,
+#                                minDist=frame.shape[1], param1=50, param2=7,
+#                                minRadius=1, maxRadius=100)
+#     # draw circles
+#     if circles is not None:
+#         circles = np.round(circles[0, :]).astype("int")
+#         for (x, y, r) in circles:
+#             area = \
+#                 (x, y, r, frame, result)
+#
+#     return area
 
 def dilate_and_erode(frame, dilation_iterations, erode_iterations, kernel_size):
     if not isinstance(frame, np.ndarray):
@@ -207,13 +216,21 @@ def add_text_to_screen(frame, area):
                 fontScale=0.7, color=(100, 0, 255), thickness=2)
 
 
-def get_canny_frame(frame, threshold1, threshold2):
+def get_ball_mask(frame):
     if not isinstance(frame, np.ndarray):
         return None
-    frame_blurred = cv2.GaussianBlur(frame, (33, 33), 1)
-    frame_blurred = cv2.medianBlur(frame_blurred, 7)
-    mask = cv2.inRange(cv2.cvtColor(frame_blurred, cv2.COLOR_BGR2HSV), COLOR_MIN, COLOR_MAX)
-    frame_dilated_and_eroded = dilate_and_erode(mask, 2, 1, 5)
-    frame_canny = cv2.Canny(frame_dilated_and_eroded, threshold1, threshold2)
-
-    return frame_canny
+    # frame_blurred = cv2.GaussianBlur(frame, (33, 33), 1)
+    # frame_blurred = cv2.medianBlur(frame_blurred, 7)
+    # mask = cv2.inRange(cv2.cvtColor(frame_blurred, cv2.COLOR_BGR2HSV), COLOR_MIN, COLOR_MAX)
+    # frame_dilated_and_eroded = dilate_and_erode(mask, 2, 2, 5)
+    # # cv2.imshow("d&e",frame_dilated_and_eroded)
+    # frame_canny = cv2.Canny(frame_dilated_and_eroded, threshold1, threshold2)
+    # # cv2.imshow("frame_canny",frame_canny)
+    # return frame_canny
+    blurred = cv2.GaussianBlur(frame, (33, 33), 1)
+    hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, COLOR_MIN, COLOR_MAX)
+    mask = erode_and_dilate(mask, 2, 2, 5)
+    # frame_canny = cv2.Canny(mask, threshold1, threshold2)
+    cv2.imshow("mask", mask)
+    return mask
