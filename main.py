@@ -3,7 +3,7 @@ from logicMethods import *
 
 def main():
     open_parameters_config_window()
-    cap = cv2.VideoCapture("demo4.mp4")
+    cap = cv2.VideoCapture("20210807_133945.mp4")
     is_first_frame = True
     while True:
         success, frame = cap.read()
@@ -16,12 +16,12 @@ def main():
             threshold2 = cv2.getTrackbarPos("Threshold2", "Parameters")
 
             if is_first_frame:
-                r, theta = get_goal_lines(result, cv2.Canny(frame.copy(), threshold1, threshold2),
-                                          is_goal_horizontal=True,
+                r, theta = get_goal_lines(result, cv2.Canny(frame[5: -5, 5: -5].copy(), threshold1, threshold2),
+                                          is_goal_horizontal=False,
                                           threshold_for_lines=200)
                 is_first_frame = False
             print("theta = {}".format(theta), "r = {}".format(r), "main")
-            draw_goal_lines(r, theta, result, is_goal_horizontal=True)
+            draw_goal_lines(r, theta, result, is_goal_horizontal=False)
             ball_mask = get_ball_mask(frame.copy())
             center, radius = get_center_and_radius(ball_mask.copy())
 

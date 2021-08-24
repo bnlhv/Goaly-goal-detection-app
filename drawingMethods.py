@@ -16,8 +16,9 @@ def draw_line(frame, theta, rho):
     b = math.sin(theta)
     x0 = a * rho
     y0 = b * rho
-    pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * (a)))
-    pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * (a)))
+    pt1 = int(x0 + 1000 * (-b)), int(y0 + 1000 * a)
+    pt2 = int(x0 - 1000 * (-b)), int(y0 - 1000 * a)
+    print(f"r = {rho}, theta = {theta}, p1 = {pt1}, p2 = {pt2}")
     cv2.line(frame, pt1, pt2, (0, 0, 255), 2, cv2.LINE_AA)
 
 
@@ -37,23 +38,21 @@ def is_line_horizontal(is_goal_horizontal, theta):
     )
 
 
-def draw_goal_lines(r, t, frame, is_goal_horizontal):
+def draw_goal_lines(r, theta, frame, is_goal_horizontal):
     if not isinstance(frame, np.ndarray):
         return None
 
     if r is not None:
-        for i in range(0, len(r)):
-            rho = r[i]
-            theta = t[i]
-
-            if is_line_horizontal(is_goal_horizontal, theta):
-                draw_line(frame, theta, rho)
-
-            elif is_line_vertical(is_goal_horizontal, theta):
-                draw_line(frame, theta, rho)
-
-            else:
-                empty(0)
+        draw_line(frame, theta, r)
+        #
+        # if is_line_horizontal(is_goal_horizontal, theta):
+        #     draw_line(frame, theta, r)
+        #
+        # elif is_line_vertical(is_goal_horizontal, theta):
+        # #     draw_line(frame, theta, r)
+        #
+        # else:
+        #     empty(0)
 
 
 def draw_ball(center, radius, result):
