@@ -1,4 +1,4 @@
-from methods import *
+from logicMethods import *
 
 
 def main():
