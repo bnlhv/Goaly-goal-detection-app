@@ -12,6 +12,7 @@ def empty(a):
 
 
 def my_hough_lines(canny_frame):
+    cv2.imshow("canny_frame",canny_frame)
     w, h = canny_frame.shape
     r_max = int(np.sqrt(w ** 2 + h ** 2))
     r_list = np.arange(-r_max, r_max)
@@ -74,29 +75,68 @@ def draw_goal_lines(r, t, frame, is_goal_horizontal):
         return None
 
     if r is not None:
-        for i in range(0, len(r)):
-            rho = r[i]
-            theta = t[i]
 
-            if is_line_horizontal(is_goal_horizontal, theta):
-                draw_line(frame, theta, rho)
+        if is_line_horizontal(is_goal_horizontal, t):
+            draw_line(frame, t, r)
 
-            elif is_line_vertical(is_goal_horizontal, theta):
-                draw_line(frame, theta, rho)
+        elif is_line_vertical(is_goal_horizontal, t):
+            draw_line(frame, t, r)
 
-            else:
-                empty(0)
+        else:
+            empty(0)
+
+
+def most_frequent(List):
+    counter = 0
+    num = List[0]
+    for i in List:
+        curr_frequency = List.count(i)
+        print(curr_frequency)
+        if curr_frequency > counter:
+            counter = curr_frequency
+            num = i
+
+    return num
+
+
+def merge_lines(r, t, left_to_right):
+    if np.logical_and(len(r) == 1, len(t) == 1):
+        return r, t
+
+    most_common_t = most_frequent(t)
+
+    for i, value in enumerate(t):
+        if value != most_common_t: #somthing went worng here because there is values in t that not equal to most_coomon_t
+            print("value ={} =!".format(value), "most_common={}".format(most_common_t))
+            t.remove(value)
+            r.remove(r[i])
+        else:
+            print("value ={} =".format(value), "most_common={}".format(most_common_t))
+
+    maximum = max(r)
+    minimum = min(r)
+
+    print("theta = {}".format(t), "r = {}".format(r))
+    if left_to_right:
+        new_r = maximum
+    else:
+        new_r = minimum
+
+    print("new_r = {}".format(new_r), "new_t = {}".format(most_common_t))
+    return new_r, most_common_t
 
 
 def get_lines_from_accumulator(H, r_max, r_array, t_array, threshold_for_lines):
     yy, xx = np.nonzero(H)
     r = []
     t = []
+
     for x, y in zip(xx, yy):
         if H[y, x] >= threshold_for_lines:
             r.append(r_array[y])
             t.append(t_array[x])
-    return r, t
+    rho, theta = merge_lines(r, t, left_to_right=True)
+    return rho, theta
 
 
 def get_goal_lines(frame, frame_canny, is_goal_horizontal, threshold_for_lines):
@@ -110,7 +150,6 @@ def get_goal_lines(frame, frame_canny, is_goal_horizontal, threshold_for_lines):
 
     H, r_max, r_array, t_array = my_hough_lines(frame_canny)
 
-    # draw lines
     return get_lines_from_accumulator(H, r_max, r_array, t_array, threshold_for_lines)
 
 
@@ -159,6 +198,7 @@ def get_center_and_radius(mask):
 def draw_ball(center, radius, result):
     cv2.circle(result, center, int(radius), (0, 255, 0), 2)
 
+
 # def draw_ball_hough_circle(x, y, r, frame, result):
 #     if not isinstance(frame, np.ndarray):
 #         return None
@@ -204,15 +244,12 @@ def erode_and_dilate(frame, dilation_iterations, erode_iterations, kernel_size):
     return frame_dilated
 
 
-def add_text_to_screen(frame, area):
+def add_text_to_screen(frame, string):
     if not isinstance(frame, np.ndarray):
         return None
-    if not isinstance(area, np.ndarray):
-        return None
+
     # todo: here we would add the logic if there is a goal
-    cv2.putText(frame, "Here we would write if there is a goal", org=(50, 50), fontFace=cv2.FONT_HERSHEY_COMPLEX,
-                fontScale=0.7, color=(100, 0, 255), thickness=2)
-    cv2.putText(frame, "Area: " + str(int(area)), org=(50, 100), fontFace=cv2.FONT_HERSHEY_COMPLEX,
+    cv2.putText(frame, string, org=(50, 50), fontFace=cv2.FONT_HERSHEY_COMPLEX,
                 fontScale=0.7, color=(100, 0, 255), thickness=2)
 
 
@@ -234,3 +271,41 @@ def get_ball_mask(frame):
     # frame_canny = cv2.Canny(mask, threshold1, threshold2)
     cv2.imshow("mask", mask)
     return mask
+
+
+# def is_goal(center, radius, p1, p2, left_to_right, down_to_up, is_goal_horizontal):
+#     x_center, y_center = center
+#     x1, y1 = p1
+#     x2, y2 = p2
+#     if np.logical_or(np.logical_and(x_center + radius > x1, x_center + radius > x2, is_goal_horizontal,
+#
+#                                     left_to_right == True),
+#                      np.logical_and(x_center - radius < x1, x_center - radius < x2, is_goal_horizontal,
+#                                     left_to_right == False),
+#                      (np.logical_and(y_center + radius > y1, y_center + radius > y2, is_goal_horizontal == False,
+#                                      down_to_up == True),
+#                       np.logical_and(y_center - radius < y1, y_center - radius < y2, is_goal_horizontal == False,
+#                                      down_to_up == False))):
+#         print("GOAL")
+#     else:
+#         print("NO-GOAL")
+def is_goal(center, radius, r, theta, left_to_right):
+    a = math.cos(theta)
+    b = math.sin(theta)
+    x0 = a * r
+    y0 = b * r
+    pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * (a)))
+    pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * (a)))
+    x1, y1 = pt1
+    x2, y2 = pt2
+    x_center, y_center = center
+    if left_to_right:
+        if (x_center - radius) > x1:
+            if (x_center - radius) > x2:
+                goal = "GOAL"
+            else:
+                goal = "NO GOAL"
+        else:
+            goal = "NO GOAL"
+
+    return goal
