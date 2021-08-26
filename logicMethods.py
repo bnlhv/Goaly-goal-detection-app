@@ -2,8 +2,9 @@ import cv2
 import numpy as np
 import math
 import imutils
+from matplotlib import pyplot as plt
 
-COLOR_MIN = np.array([0, 15, 10], np.uint8)
+COLOR_MIN = np.array([0, 115, 50], np.uint8)
 COLOR_MAX = np.array([7, 255, 255], np.uint8)
 
 
@@ -11,8 +12,46 @@ def empty(a):
     pass
 
 
+# def open_parameters_config_window():
+#     cv2.namedWindow("Parameters")
+#     cv2.resizeWindow("Parameters", (640, 120))
+#     cv2.createTrackbar("Threshold1", "Parameters", 50, 255, empty)
+#     cv2.createTrackbar("Threshold2", "Parameters", 150, 255, empty)
+#     cv2.createTrackbar("Area", "Parameters", 1300, 15000, empty)
+
+def draw_line(frame, theta, rho):
+    if not isinstance(frame, np.ndarray):
+        return None
+    a = math.cos(theta[0])
+    b = math.sin(theta[0])
+    x0 = a * rho[0]
+    y0 = b * rho[0]
+    pt1 = int(x0 + 1000 * (-b)), int(y0 + 1000 * a)
+    pt2 = int(x0 - 1000 * (-b)), int(y0 - 1000 * a)
+    # print(f"r = {rho}, theta = {theta}, p1 = {pt1}, p2 = {pt2}")
+    cv2.line(frame, pt1, pt2, (0, 0, 255), 2, cv2.LINE_AA)
+
+
+def is_line_horizontal(is_goal_horizontal, theta):
+    # if the degree of the line is horizontal return true (4 cases)
+    return np.logical_or(
+        np.logical_and(is_goal_horizontal, np.logical_or(0 * np.pi <= theta <= 0.1 * np.pi,
+                                                         1.9 * np.pi <= theta <= 2 * np.pi)),
+        np.logical_and(is_goal_horizontal, np.logical_or(0.9 * np.pi <= theta <= 1 * np.pi,
+                                                         1 * np.pi <= theta <= 1.1 * np.pi))
+    )
+
+
+def draw_goal_lines(r, theta, frame, is_goal_horizontal):
+    if not isinstance(frame, np.ndarray):
+        return None
+
+    if r is not None:
+        draw_line(frame, theta, r)
+
+
 def my_hough_lines(canny_frame):
-    cv2.imshow("canny_frame",canny_frame)
+    # cv2.imshow("canny_frame", canny_frame)
     w, h = canny_frame.shape
     r_max = int(np.sqrt(w ** 2 + h ** 2))
     r_list = np.arange(-r_max, r_max)
@@ -26,32 +65,13 @@ def my_hough_lines(canny_frame):
     r = np.zeros(len(r_list))
     for x, y in zip(xx, yy):
         for t_idx, theta in enumerate(theta_list):
-            rho = x * np.cos(theta) + y * np.sin(theta)
-            rho_idx = int(round(rho)) + r_max
-            hough_space[rho_idx, t_idx] += 1
-            t[t_idx] = theta
-            r[rho_idx] = rho
+            if is_line_horizontal(True, theta):
+                rho = x * np.cos(theta) + y * np.sin(theta)
+                rho_idx = int(round(rho)) + r_max
+                hough_space[rho_idx, t_idx] += 1
+                t[t_idx] = theta
+                r[rho_idx] = rho
     return hough_space, r_max, r, t
-
-
-def open_parameters_config_window():
-    cv2.namedWindow("Parameters")
-    cv2.resizeWindow("Parameters", (640, 120))
-    cv2.createTrackbar("Threshold1", "Parameters", 50, 255, empty)
-    cv2.createTrackbar("Threshold2", "Parameters", 150, 255, empty)
-    cv2.createTrackbar("Area", "Parameters", 1300, 15000, empty)
-
-
-def draw_line(frame, theta, rho):
-    if not isinstance(frame, np.ndarray):
-        return None
-    a = math.cos(theta)
-    b = math.sin(theta)
-    x0 = a * rho
-    y0 = b * rho
-    pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * (a)))
-    pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * (a)))
-    cv2.line(frame, pt1, pt2, (0, 0, 255), 2, cv2.LINE_AA)
 
 
 def is_line_vertical(is_goal_horizontal, theta):
@@ -60,38 +80,13 @@ def is_line_vertical(is_goal_horizontal, theta):
                                                                 1.4 * np.pi <= theta <= 1.6 * np.pi))
 
 
-def is_line_horizontal(is_goal_horizontal, theta):
-    # if the degree of the line is horizontal return true (4 cases)
-    return np.logical_or(
-        np.logical_and(is_goal_horizontal, np.logical_or(0 * np.pi <= theta <= 0.1 * np.pi,
-                                                         1.9 * np.pi <= theta <= 2 * np.pi)),
-        np.logical_and(is_goal_horizontal, np.logical_or(0.9 * np.pi <= theta <= 1 * np.pi,
-                                                         1 * np.pi <= theta <= 1.1 * np.pi))
-    )
-
-
-def draw_goal_lines(r, t, frame, is_goal_horizontal):
-    if not isinstance(frame, np.ndarray):
-        return None
-
-    if r is not None:
-
-        if is_line_horizontal(is_goal_horizontal, t):
-            draw_line(frame, t, r)
-
-        elif is_line_vertical(is_goal_horizontal, t):
-            draw_line(frame, t, r)
-
-        else:
-            empty(0)
-
-
 def most_frequent(List):
     counter = 0
     num = List[0]
+
     for i in List:
         curr_frequency = List.count(i)
-        print(curr_frequency)
+        # print(curr_frequency)
         if curr_frequency > counter:
             counter = curr_frequency
             num = i
@@ -106,23 +101,23 @@ def merge_lines(r, t, left_to_right):
     most_common_t = most_frequent(t)
 
     for i, value in enumerate(t):
-        if value != most_common_t: #somthing went worng here because there is values in t that not equal to most_coomon_t
-            print("value ={} =!".format(value), "most_common={}".format(most_common_t))
+        if value != most_common_t:  # somthing went worng here because there is values in t that not equal to most_coomon_t
+            # print("value ={} =!".format(value), "most_common={}".format(most_common_t))
             t.remove(value)
             r.remove(r[i])
-        else:
-            print("value ={} =".format(value), "most_common={}".format(most_common_t))
+        # else:
+        #     # print("value ={} =".format(value), "most_common={}".format(most_common_t))
 
     maximum = max(r)
     minimum = min(r)
 
-    print("theta = {}".format(t), "r = {}".format(r))
+    # print("theta = {}".format(t), "r = {}".format(r))
     if left_to_right:
         new_r = maximum
     else:
         new_r = minimum
 
-    print("new_r = {}".format(new_r), "new_t = {}".format(most_common_t))
+    # print("new_r = {}".format(new_r), "new_t = {}".format(most_common_t))
     return new_r, most_common_t
 
 
@@ -130,7 +125,6 @@ def get_lines_from_accumulator(H, r_max, r_array, t_array, threshold_for_lines):
     yy, xx = np.nonzero(H)
     r = []
     t = []
-
     for x, y in zip(xx, yy):
         if H[y, x] >= threshold_for_lines:
             r.append(r_array[y])
@@ -139,48 +133,20 @@ def get_lines_from_accumulator(H, r_max, r_array, t_array, threshold_for_lines):
     return rho, theta
 
 
-def get_goal_lines(frame, frame_canny, is_goal_horizontal, threshold_for_lines):
+def get_goal_lines(frame, frame_canny, threshold_for_lines):
     if not isinstance(frame, np.ndarray):
         return None
     if not isinstance(frame_canny, np.ndarray):
         return None
-
-    # get lines
-    # lines = cv2.HoughLines(frame_canny, 1, np.pi / 180, threshold_for_lines, None, 0, 0)
 
     H, r_max, r_array, t_array = my_hough_lines(frame_canny)
 
     return get_lines_from_accumulator(H, r_max, r_array, t_array, threshold_for_lines)
 
 
-# def draw_ball_contours(contour, frame, frame_contours):
-#     if not isinstance(frame, np.ndarray):
-#         return None
-#     if not isinstance(frame_contours, np.ndarray):
-#         return None
-#
-#     if cv2.isContourConvex(contour):
-#         frame_contours = cv2.convexHull(contour)
-#     else:
-#         (x, y), radius = cv2.minEnclosingCircle(contour)
-#         if np.pi * (radius ** 2) < 0.05 * frame.shape[0] * frame.shape[1]:
-#             center = (int(x), int(y))
-#             radius = int(radius)
-#             frame_contours = cv2.circle(frame_contours, center, radius, (0, 255, 0), 2)
-
-
 def get_center_and_radius(mask):
     if not isinstance(mask, np.ndarray):
         return None
-    # get contours
-    # contours, hierarchy = cv2.findContours(frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    # # draw contours
-    # for contour in contours:
-    #     area = cv2.contourArea(contour)
-    #     area_from_user = cv2.getTrackbarPos("Area", "Parameters")
-    #     if area > area_from_user:
-    #         draw_ball_contours(contour, frame, frame_contours)
-    # return area
     center = None
     radius = 0
     contours = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
@@ -198,33 +164,6 @@ def get_center_and_radius(mask):
 def draw_ball(center, radius, result):
     cv2.circle(result, center, int(radius), (0, 255, 0), 2)
 
-
-# def draw_ball_hough_circle(x, y, r, frame, result):
-#     if not isinstance(frame, np.ndarray):
-#         return None
-#     area_from_user = cv2.getTrackbarPos("Area", "Parameters")
-#     area = np.pi * (r ** 2)
-#     if area_from_user < area < (0.06 * frame.shape[0] * frame.shape[1]):
-#         cv2.circle(result, (x, y), r, (255, 0, 0), 3)
-#
-#     return area
-
-
-# def get_ball_hough_circles(frame, result):
-#     if not isinstance(frame, np.ndarray):
-#         return None
-#     # get circles
-#     circles = cv2.HoughCircles(frame, method=cv2.HOUGH_GRADIENT, dp=1,
-#                                minDist=frame.shape[1], param1=50, param2=7,
-#                                minRadius=1, maxRadius=100)
-#     # draw circles
-#     if circles is not None:
-#         circles = np.round(circles[0, :]).astype("int")
-#         for (x, y, r) in circles:
-#             area = \
-#                 (x, y, r, frame, result)
-#
-#     return area
 
 def dilate_and_erode(frame, dilation_iterations, erode_iterations, kernel_size):
     if not isinstance(frame, np.ndarray):
@@ -256,56 +195,37 @@ def add_text_to_screen(frame, string):
 def get_ball_mask(frame):
     if not isinstance(frame, np.ndarray):
         return None
-    # frame_blurred = cv2.GaussianBlur(frame, (33, 33), 1)
-    # frame_blurred = cv2.medianBlur(frame_blurred, 7)
-    # mask = cv2.inRange(cv2.cvtColor(frame_blurred, cv2.COLOR_BGR2HSV), COLOR_MIN, COLOR_MAX)
-    # frame_dilated_and_eroded = dilate_and_erode(mask, 2, 2, 5)
-    # # cv2.imshow("d&e",frame_dilated_and_eroded)
-    # frame_canny = cv2.Canny(frame_dilated_and_eroded, threshold1, threshold2)
-    # # cv2.imshow("frame_canny",frame_canny)
-    # return frame_canny
     blurred = cv2.GaussianBlur(frame, (33, 33), 1)
     hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, COLOR_MIN, COLOR_MAX)
     mask = erode_and_dilate(mask, 2, 2, 5)
-    # frame_canny = cv2.Canny(mask, threshold1, threshold2)
-    cv2.imshow("mask", mask)
+    cv2.imshow("mask2", mask)
     return mask
 
 
-# def is_goal(center, radius, p1, p2, left_to_right, down_to_up, is_goal_horizontal):
-#     x_center, y_center = center
-#     x1, y1 = p1
-#     x2, y2 = p2
-#     if np.logical_or(np.logical_and(x_center + radius > x1, x_center + radius > x2, is_goal_horizontal,
-#
-#                                     left_to_right == True),
-#                      np.logical_and(x_center - radius < x1, x_center - radius < x2, is_goal_horizontal,
-#                                     left_to_right == False),
-#                      (np.logical_and(y_center + radius > y1, y_center + radius > y2, is_goal_horizontal == False,
-#                                      down_to_up == True),
-#                       np.logical_and(y_center - radius < y1, y_center - radius < y2, is_goal_horizontal == False,
-#                                      down_to_up == False))):
-#         print("GOAL")
-#     else:
-#         print("NO-GOAL")
 def is_goal(center, radius, r, theta, left_to_right):
-    a = math.cos(theta)
-    b = math.sin(theta)
-    x0 = a * r
-    y0 = b * r
+    goal = ""
+    a = math.cos(theta[0])
+    b = math.sin(theta[0])
+    x0 = a * r[0]
+    y0 = b * r[0]
     pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * (a)))
     pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * (a)))
     x1, y1 = pt1
     x2, y2 = pt2
     x_center, y_center = center
+    d = float((x_center - radius - x1) * (y2 - y1) - (y_center - y1) * (x2 - x1))
+    print(d)
+
     if left_to_right:
-        if (x_center - radius) > x1:
-            if (x_center - radius) > x2:
-                goal = "GOAL"
-            else:
-                goal = "NO GOAL"
+        if d < 0:
+            goal = "GOAL"
         else:
             goal = "NO GOAL"
-
+    else:
+        if d > 0:
+            goal = "GOAL"
+        else:
+            goal = "NO GOAL"
+    print(goal)
     return goal
