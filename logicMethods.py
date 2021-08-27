@@ -2,12 +2,12 @@
 this module is responsible for all the logic functions
 """
 
-
 from typing import Any, List, Union, Optional
 import cv2
 import numpy as np
 import math
 import imutils
+from drawingMethods import *
 from matplotlib import pyplot as plt
 
 # these are HSV mask values for ball detection
@@ -34,28 +34,6 @@ def open_parameters_config_window() -> None:
     cv2.createTrackbar("Area", "Parameters", 1300, 15000, empty)
 
 
-def draw_line(frame: np.ndarray, theta: List, rho: float) -> None:
-    """
-    this function draw a line on a canvas "frame" with converting rho, theta coefficient values to [y = ax + b]
-
-    :param frame: nd array -> the current picture at the video
-    :param theta: angle which is an axis is hough space
-    :param rho: distance from (0, 0) to (x, y) which is an axis is hough space
-    """
-    if isinstance(rho, List):
-        rho = rho[0]
-        theta = theta[0]
-
-    if rho is not None:
-        a = math.cos(theta)
-        b = math.sin(theta)
-        x0 = a * rho
-        y0 = b * rho
-        pt1 = int(x0 + 1000 * (-b)), int(y0 + 1000 * a)
-        pt2 = int(x0 - 1000 * (-b)), int(y0 - 1000 * a)
-        cv2.line(frame, pt1, pt2, (0, 0, 255), 2, cv2.LINE_AA)
-
-
 def is_line_horizontal(is_goal_horizontal: bool, theta: float) -> bool:
     """
     this function returns a value that detects if the line we found is horizontal
@@ -73,17 +51,17 @@ def is_line_horizontal(is_goal_horizontal: bool, theta: float) -> bool:
     )
 
 
-def is_line_vertical(is_goal_horizontal: bool, theta: float) -> bool:
-    """
-        this function returns a value that detects if the line we found is vertical
-
-        :param is_goal_horizontal: bool value, what the user entered
-        :param theta: the angle in pi values
-        :return: boolean
-        """
-    # if the degree of the line is vertical return true
-    return np.logical_and(not is_goal_horizontal, np.logical_or(0.4 * np.pi <= theta <= 0.6 * np.pi,
-                                                                1.4 * np.pi <= theta <= 1.6 * np.pi))
+# def is_line_vertical(is_goal_horizontal: bool, theta: float) -> bool:
+#     """
+#         this function returns a value that detects if the line we found is vertical
+#
+#         :param is_goal_horizontal: bool value, what the user entered
+#         :param theta: the angle in pi values
+#         :return: boolean
+#         """
+#     # if the degree of the line is vertical return true
+#     return np.logical_and(not is_goal_horizontal, np.logical_or(0.4 * np.pi <= theta <= 0.6 * np.pi,
+#                                                                 1.4 * np.pi <= theta <= 1.6 * np.pi))
 
 
 def my_hough_lines(canny_frame: np.ndarray) -> Union[np.ndarray, int, float]:
@@ -122,9 +100,9 @@ def my_hough_lines(canny_frame: np.ndarray) -> Union[np.ndarray, int, float]:
 # todo: why not np.argmax?
 def most_frequent(lst: List) -> int:
     """
-    fing the mose frequent element
+    this function find the most frequent element
 
-    :param lst:
+    :param lst:list
     :return: most frequent element
     """
     counter: int = 0
@@ -170,7 +148,16 @@ def merge_lines(rho: np.ndarray, theta: np.ndarray, left_to_right: bool) -> Unio
     return new_r, most_common_t
 
 
-def get_lines_from_accumulator(H, r_array, t_array, threshold_for_lines):
+def get_lines_from_accumulator(H, r_array, t_array, threshold_for_lines) -> Union[int, float]:
+    """
+    this function return the rhos and thetas which higher than treshold_for_lines
+
+    :param H: np.ndarray ,the accumulator matrix
+    :param r_array: list of rhos
+    :param t_array: list of thetas
+    :param threshold_for_lines: int , Sets the threshold for the lines
+    :return:
+    """
     if np.logical_or(r_array is None, t_array is None):
         return None
     yy, xx = np.nonzero(H)
@@ -184,44 +171,14 @@ def get_lines_from_accumulator(H, r_array, t_array, threshold_for_lines):
     return rho, theta
 
 
-# def get_lines_from_accumulator(H: np.ndarray, r_array, t_array, threshold_for_lines: bool) \
-#         -> Union[int, float]:
-#     """
-#     calculate the best lines from accumulator H matrix
-#
-#     :param H: the voting matrix (BW)
-#     :param r_max: maximum value of rho
-#     :param r_array: all rho nominees
-#     :param t_array: all theta nominees
-#     :param threshold_for_lines: int value for threshold
-#     :return: the line
-#     """
-#     # yy: List
-#     # xx: List
-#     yy, xx = np.nonzero(H)
-#     rho_list = []
-#     theta_list = []
-#
-#     for x, y in zip(xx, yy):
-#         if H[y, x] >= threshold_for_lines:
-#             rho_list.append(int(r_array[y]))
-#             theta_list.append(int(t_array[x]))
-#
-#     rho, theta = merge_lines(rho_list, theta_list, left_to_right=True)
-#
-#     return rho, theta
-
-
-def get_goal_lines(frame, frame_canny, threshold_for_lines):
+def get_goal_lines(frame_canny, threshold_for_lines):
     """
+    this function return rho, theta of the goal line
 
-    :param frame:
-    :param frame_canny:
-    :param threshold_for_lines:
-    :return:
+    :param frame_canny: np.ndarray of edges
+    :param threshold_for_lines: int , Sets the threshold for the lines
+
     """
-    if not isinstance(frame, np.ndarray):
-        return None
     if not isinstance(frame_canny, np.ndarray):
         return None
 
@@ -230,11 +187,12 @@ def get_goal_lines(frame, frame_canny, threshold_for_lines):
     return get_lines_from_accumulator(H, r_array, t_array, threshold_for_lines)
 
 
-def get_center_and_radius(mask):
+def get_center_and_radius(mask) -> Union[(int, int), float]:
     """
+    this function recognize the center and the radius of the ball
 
-    :param mask:
-    :return:
+    :param mask: np.ndarray mask that helps to find the ball
+    :return: (int, int), float :center of the ball ,radius of the ball
     """
     if not isinstance(mask, np.ndarray):
         return None
@@ -252,42 +210,16 @@ def get_center_and_radius(mask):
     return center, radius
 
 
-def draw_ball(center, radius, result):
+def erode_and_dilate(frame: np.ndarray, dilation_iterations: int, erode_iterations: int,
+                     kernel_size: int) -> np.ndarray:
     """
+    this function dose dilation_iterations times cv2.erode()  and erode_iterations times tomes cv2.dilate()
 
-    :param center:
-    :param radius:
-    :param result:
-    :return:
-    """
-    cv2.circle(result, center, int(radius), (0, 255, 0), 2)
-
-
-def dilate_and_erode(frame, dilation_iterations, erode_iterations, kernel_size):
-    """
-
-    :param frame:
-    :param dilation_iterations:
-    :param erode_iterations:
-    :param kernel_size:
-    :return:
-    """
-    if not isinstance(frame, np.ndarray):
-        return None
-    kernel = np.ones((kernel_size, kernel_size))
-    frame_dilated = cv2.dilate(frame, kernel, iterations=dilation_iterations)
-    frame_eroded = cv2.erode(frame_dilated, kernel, iterations=erode_iterations)
-    return frame_eroded
-
-
-def erode_and_dilate(frame, dilation_iterations, erode_iterations, kernel_size):
-    """
-
-    :param frame:
-    :param dilation_iterations:
-    :param erode_iterations:
-    :param kernel_size:
-    :return:
+    :param frame: np.ndarray
+    :param dilation_iterations: int of iterations for dilate
+    :param erode_iterations: int of iterations for erode
+    :param kernel_size: int
+    :return: np.ndarray
     """
     if not isinstance(frame, np.ndarray):
         return None
@@ -297,26 +229,12 @@ def erode_and_dilate(frame, dilation_iterations, erode_iterations, kernel_size):
     return frame_dilated
 
 
-def add_text_to_screen(frame, string):
+def get_ball_mask(frame: np.ndarray) -> np.ndarray:
     """
+    get the original frame and return mask the helps to find the ball
 
-    :param frame:
-    :param string:
-    :return:
-    """
-    if not isinstance(frame, np.ndarray):
-        return None
-
-    # todo: here we would add the logic if there is a goal
-    cv2.putText(frame, string, org=(50, 50), fontFace=cv2.FONT_HERSHEY_COMPLEX,
-                fontScale=0.7, color=(100, 0, 255), thickness=2)
-
-
-def get_ball_mask(frame):
-    """
-
-    :param frame:
-    :return:
+    :param frame: np.ndarray , original frmae
+    :return: np.ndarray , mask for the ball
     """
     if not isinstance(frame, np.ndarray):
         return None
@@ -328,15 +246,16 @@ def get_ball_mask(frame):
     return mask
 
 
-def is_goal(center, radius, r, theta, left_to_right):
+def is_goal(center: (int, int), radius: float, r: int, theta: float, left_to_right: bool) -> str:
     """
+    this function determines in each frame if it is a goal or not and return string
 
-    :param center:
-    :param radius:
-    :param r:
-    :param theta:
-    :param left_to_right:
-    :return:
+    :param center:(x,y) point of the ball center
+    :param radius: radius of the ball
+    :param r: rhos of the goal line
+    :param theta: theta of the goal line
+    :param left_to_right: if True it is mean the goal come from left to right, if False its means the opposite
+    :return: goal or no goal
     """
     if isinstance(r, List):
         r = r[0]
