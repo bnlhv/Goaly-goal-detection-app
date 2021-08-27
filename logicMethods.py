@@ -1,38 +1,69 @@
+"""
+this module is responsible for all the logic functions
+"""
+
+
+from typing import Any, List, Union, Optional
 import cv2
 import numpy as np
 import math
 import imutils
 from matplotlib import pyplot as plt
 
+# these are HSV mask values for ball detection
 COLOR_MIN = np.array([0, 115, 50], np.uint8)
 COLOR_MAX = np.array([7, 255, 255], np.uint8)
 
 
-def empty(a):
+def empty(a: Any) -> None:
+    """
+    this is an empty function to be able to do nothing but with more readability
+
+    :param a: optional param
+    """
     pass
 
 
-# def open_parameters_config_window():
-#     cv2.namedWindow("Parameters")
-#     cv2.resizeWindow("Parameters", (640, 120))
-#     cv2.createTrackbar("Threshold1", "Parameters", 50, 255, empty)
-#     cv2.createTrackbar("Threshold2", "Parameters", 150, 255, empty)
-#     cv2.createTrackbar("Area", "Parameters", 1300, 15000, empty)
+def open_parameters_config_window() -> None:
+    """ this function is for new window with trackbars which are responsible for app thresholds etc. """
 
-def draw_line(frame, theta, rho):
-    if not isinstance(frame, np.ndarray):
-        return None
-    a = math.cos(theta[0])
-    b = math.sin(theta[0])
-    x0 = a * rho[0]
-    y0 = b * rho[0]
-    pt1 = int(x0 + 1000 * (-b)), int(y0 + 1000 * a)
-    pt2 = int(x0 - 1000 * (-b)), int(y0 - 1000 * a)
-    # print(f"r = {rho}, theta = {theta}, p1 = {pt1}, p2 = {pt2}")
-    cv2.line(frame, pt1, pt2, (0, 0, 255), 2, cv2.LINE_AA)
+    cv2.namedWindow("Parameters")
+    cv2.resizeWindow("Parameters", (640, 120))
+    cv2.createTrackbar("Threshold1", "Parameters", 50, 255, empty)
+    cv2.createTrackbar("Threshold2", "Parameters", 150, 255, empty)
+    cv2.createTrackbar("Area", "Parameters", 1300, 15000, empty)
 
 
-def is_line_horizontal(is_goal_horizontal, theta):
+def draw_line(frame: np.ndarray, theta: List, rho: float) -> None:
+    """
+    this function draw a line on a canvas "frame" with converting rho, theta coefficient values to [y = ax + b]
+
+    :param frame: nd array -> the current picture at the video
+    :param theta: angle which is an axis is hough space
+    :param rho: distance from (0, 0) to (x, y) which is an axis is hough space
+    """
+    if isinstance(rho, List):
+        rho = rho[0]
+        theta = theta[0]
+
+    if rho is not None:
+        a = math.cos(theta)
+        b = math.sin(theta)
+        x0 = a * rho
+        y0 = b * rho
+        pt1 = int(x0 + 1000 * (-b)), int(y0 + 1000 * a)
+        pt2 = int(x0 - 1000 * (-b)), int(y0 - 1000 * a)
+        cv2.line(frame, pt1, pt2, (0, 0, 255), 2, cv2.LINE_AA)
+
+
+def is_line_horizontal(is_goal_horizontal: bool, theta: float) -> bool:
+    """
+    this function returns a value that detects if the line we found is horizontal
+
+    :param is_goal_horizontal: bool value, what the user entered
+    :param theta: the angle in pi values
+    :return: boolean
+    """
     # if the degree of the line is horizontal return true (4 cases)
     return np.logical_or(
         np.logical_and(is_goal_horizontal, np.logical_or(0 * np.pi <= theta <= 0.1 * np.pi,
@@ -42,50 +73,65 @@ def is_line_horizontal(is_goal_horizontal, theta):
     )
 
 
-def draw_goal_lines(r, theta, frame, is_goal_horizontal):
-    if not isinstance(frame, np.ndarray):
-        return None
+def is_line_vertical(is_goal_horizontal: bool, theta: float) -> bool:
+    """
+        this function returns a value that detects if the line we found is vertical
 
-    if r is not None:
-        draw_line(frame, theta, r)
-
-
-def my_hough_lines(canny_frame):
-    # cv2.imshow("canny_frame", canny_frame)
-    w, h = canny_frame.shape
-    r_max = int(np.sqrt(w ** 2 + h ** 2))
-    r_list = np.arange(-r_max, r_max)
-    theta_list = np.arange(np.pi, step=np.pi / 180)
-    # Hough accumulator array of theta vs rho
-    hough_space = np.zeros((len(r_list), len(theta_list)), dtype=np.uint64)  # accumulator matrix
-    yy, xx = np.nonzero(canny_frame)  # (row, colo) indexes to edges
-
-    # Vote in the Hough accumulator
-    t = np.zeros(len(theta_list))
-    r = np.zeros(len(r_list))
-    for x, y in zip(xx, yy):
-        for t_idx, theta in enumerate(theta_list):
-            if is_line_horizontal(True, theta):
-                rho = x * np.cos(theta) + y * np.sin(theta)
-                rho_idx = int(round(rho)) + r_max
-                hough_space[rho_idx, t_idx] += 1
-                t[t_idx] = theta
-                r[rho_idx] = rho
-    return hough_space, r_max, r, t
-
-
-def is_line_vertical(is_goal_horizontal, theta):
+        :param is_goal_horizontal: bool value, what the user entered
+        :param theta: the angle in pi values
+        :return: boolean
+        """
     # if the degree of the line is vertical return true
     return np.logical_and(not is_goal_horizontal, np.logical_or(0.4 * np.pi <= theta <= 0.6 * np.pi,
                                                                 1.4 * np.pi <= theta <= 1.6 * np.pi))
 
 
-def most_frequent(List):
-    counter = 0
-    num = List[0]
+def my_hough_lines(canny_frame: np.ndarray) -> Union[np.ndarray, int, float]:
+    """
+    this function finds the accumulator matrix and from it we can collect the lines by threshold
 
-    for i in List:
-        curr_frequency = List.count(i)
+    :param canny_frame: ndarray that represents the Canny Edge detection image
+    :return: the accumulator mat, max value of rho which is the distance
+    """
+
+    w, h = canny_frame.shape
+    r_max: int = int(np.sqrt(w ** 2 + h ** 2))
+    rho_list: list = np.arange(-r_max, r_max)
+    theta_list: list = np.arange(np.pi, step=np.pi / 180)
+
+    # Hough accumulator array of theta vs rho
+    H: np.ndarray = np.zeros((len(rho_list), len(theta_list)), dtype=np.uint64)  # accumulator matrix
+    yy, xx = np.nonzero(canny_frame)  # (row, colo) indexes to edges
+
+    # Vote in the Hough accumulator
+    t = np.zeros(len(theta_list))
+    r = np.zeros(len(rho_list))
+
+    for x, y in zip(xx, yy):
+        for theta_idx, theta in enumerate(theta_list):
+            if is_line_horizontal(True, theta):
+                rho = x * np.cos(theta) + y * np.sin(theta)
+                rho_idx = int(round(rho)) + r_max
+                H[rho_idx, theta_idx] += 1
+                t[theta_idx] = theta
+                r[rho_idx] = rho
+
+    return H, r, t
+
+
+# todo: why not np.argmax?
+def most_frequent(lst: List) -> int:
+    """
+    fing the mose frequent element
+
+    :param lst:
+    :return: most frequent element
+    """
+    counter: int = 0
+    num: int = lst[0]
+
+    for i in lst:
+        curr_frequency = lst.count(i)
         # print(curr_frequency)
         if curr_frequency > counter:
             counter = curr_frequency
@@ -94,34 +140,39 @@ def most_frequent(List):
     return num
 
 
-def merge_lines(r, t, left_to_right):
-    if np.logical_and(len(r) == 1, len(t) == 1):
-        return r, t
+def merge_lines(rho: np.ndarray, theta: np.ndarray, left_to_right: bool) -> Union[int, float]:
+    """
+    get several lines that could be a goal line and merge them to one to find out if goal
 
-    most_common_t = most_frequent(t)
+    :param rho: list of rho values of the founded nominee lines
+    :param theta: list of theta degrees values of the founded nominee lines
+    :param left_to_right: bool to know what logic to implement
+    :return: the rho, theta combination for 1 line
+    """
+    if np.logical_and(len(rho) == 1, len(theta) == 1):
+        return rho, theta
 
-    for i, value in enumerate(t):
+    most_common_t: int = most_frequent(theta)
+
+    for i, value in enumerate(theta):
         if value != most_common_t:  # somthing went worng here because there is values in t that not equal to most_coomon_t
-            # print("value ={} =!".format(value), "most_common={}".format(most_common_t))
-            t.remove(value)
-            r.remove(r[i])
-        # else:
-        #     # print("value ={} =".format(value), "most_common={}".format(most_common_t))
+            theta.remove(value)
+            rho.remove(rho[i])
 
-    maximum = max(r)
-    minimum = min(r)
+    maximum: float = max(rho)
+    minimum: float = min(rho)
 
-    # print("theta = {}".format(t), "r = {}".format(r))
     if left_to_right:
         new_r = maximum
     else:
         new_r = minimum
 
-    # print("new_r = {}".format(new_r), "new_t = {}".format(most_common_t))
     return new_r, most_common_t
 
 
-def get_lines_from_accumulator(H, r_max, r_array, t_array, threshold_for_lines):
+def get_lines_from_accumulator(H, r_array, t_array, threshold_for_lines):
+    if np.logical_or(r_array is None, t_array is None):
+        return None
     yy, xx = np.nonzero(H)
     r = []
     t = []
@@ -133,18 +184,58 @@ def get_lines_from_accumulator(H, r_max, r_array, t_array, threshold_for_lines):
     return rho, theta
 
 
+# def get_lines_from_accumulator(H: np.ndarray, r_array, t_array, threshold_for_lines: bool) \
+#         -> Union[int, float]:
+#     """
+#     calculate the best lines from accumulator H matrix
+#
+#     :param H: the voting matrix (BW)
+#     :param r_max: maximum value of rho
+#     :param r_array: all rho nominees
+#     :param t_array: all theta nominees
+#     :param threshold_for_lines: int value for threshold
+#     :return: the line
+#     """
+#     # yy: List
+#     # xx: List
+#     yy, xx = np.nonzero(H)
+#     rho_list = []
+#     theta_list = []
+#
+#     for x, y in zip(xx, yy):
+#         if H[y, x] >= threshold_for_lines:
+#             rho_list.append(int(r_array[y]))
+#             theta_list.append(int(t_array[x]))
+#
+#     rho, theta = merge_lines(rho_list, theta_list, left_to_right=True)
+#
+#     return rho, theta
+
+
 def get_goal_lines(frame, frame_canny, threshold_for_lines):
+    """
+
+    :param frame:
+    :param frame_canny:
+    :param threshold_for_lines:
+    :return:
+    """
     if not isinstance(frame, np.ndarray):
         return None
     if not isinstance(frame_canny, np.ndarray):
         return None
 
-    H, r_max, r_array, t_array = my_hough_lines(frame_canny)
+    H, r_array, t_array = my_hough_lines(frame_canny)
 
-    return get_lines_from_accumulator(H, r_max, r_array, t_array, threshold_for_lines)
+    return get_lines_from_accumulator(H, r_array, t_array, threshold_for_lines)
 
 
 def get_center_and_radius(mask):
+    """
+
+    :param mask:
+    :return:
+    """
     if not isinstance(mask, np.ndarray):
         return None
     center = None
@@ -162,10 +253,25 @@ def get_center_and_radius(mask):
 
 
 def draw_ball(center, radius, result):
+    """
+
+    :param center:
+    :param radius:
+    :param result:
+    :return:
+    """
     cv2.circle(result, center, int(radius), (0, 255, 0), 2)
 
 
 def dilate_and_erode(frame, dilation_iterations, erode_iterations, kernel_size):
+    """
+
+    :param frame:
+    :param dilation_iterations:
+    :param erode_iterations:
+    :param kernel_size:
+    :return:
+    """
     if not isinstance(frame, np.ndarray):
         return None
     kernel = np.ones((kernel_size, kernel_size))
@@ -175,6 +281,14 @@ def dilate_and_erode(frame, dilation_iterations, erode_iterations, kernel_size):
 
 
 def erode_and_dilate(frame, dilation_iterations, erode_iterations, kernel_size):
+    """
+
+    :param frame:
+    :param dilation_iterations:
+    :param erode_iterations:
+    :param kernel_size:
+    :return:
+    """
     if not isinstance(frame, np.ndarray):
         return None
     kernel = np.ones((kernel_size, kernel_size))
@@ -184,6 +298,12 @@ def erode_and_dilate(frame, dilation_iterations, erode_iterations, kernel_size):
 
 
 def add_text_to_screen(frame, string):
+    """
+
+    :param frame:
+    :param string:
+    :return:
+    """
     if not isinstance(frame, np.ndarray):
         return None
 
@@ -193,6 +313,11 @@ def add_text_to_screen(frame, string):
 
 
 def get_ball_mask(frame):
+    """
+
+    :param frame:
+    :return:
+    """
     if not isinstance(frame, np.ndarray):
         return None
     blurred = cv2.GaussianBlur(frame, (33, 33), 1)
@@ -204,18 +329,29 @@ def get_ball_mask(frame):
 
 
 def is_goal(center, radius, r, theta, left_to_right):
-    goal = ""
-    a = math.cos(theta[0])
-    b = math.sin(theta[0])
-    x0 = a * r[0]
-    y0 = b * r[0]
+    """
+
+    :param center:
+    :param radius:
+    :param r:
+    :param theta:
+    :param left_to_right:
+    :return:
+    """
+    if isinstance(r, List):
+        r = r[0]
+        theta = theta[0]
+
+    a = math.cos(theta)
+    b = math.sin(theta)
+    x0 = a * r
+    y0 = b * r
     pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * (a)))
     pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * (a)))
     x1, y1 = pt1
     x2, y2 = pt2
     x_center, y_center = center
     d = float((x_center - radius - x1) * (y2 - y1) - (y_center - y1) * (x2 - x1))
-    print(d)
 
     if left_to_right:
         if d < 0:
@@ -227,5 +363,5 @@ def is_goal(center, radius, r, theta, left_to_right):
             goal = "GOAL"
         else:
             goal = "NO GOAL"
-    print(goal)
+
     return goal

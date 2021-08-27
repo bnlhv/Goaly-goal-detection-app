@@ -1,12 +1,11 @@
-
+"""this module is main entry point of this app"""
 
 from logicMethods import *
 
 
-def main():
+def goal_detection_app():
 
-
-    cap = cv2.VideoCapture("demo10.mp4")
+    cap = cv2.VideoCapture("C:\\Users\\benla\\Downloads\\demo16.mp4")
     is_first_frame = True
     while True:
         success, frame = cap.read()
@@ -20,7 +19,8 @@ def main():
                 r, theta = get_goal_lines(result, cv2.Canny(frame.copy(), 50, 150),
                                           threshold_for_lines=200)
                 is_first_frame = False
-            draw_goal_lines(r, theta, result, is_goal_horizontal=False)
+
+            draw_line(result, theta, r)
             ball_mask = get_ball_mask(frame.copy())
             center, radius = get_center_and_radius(ball_mask.copy())
 
@@ -30,6 +30,7 @@ def main():
                 add_text_to_screen(result, goal)
 
             cv2.imshow("Result", result)
+
             k = cv2.waitKey(50) & 0xff
             if k == 27:
                 break
@@ -37,4 +38,5 @@ def main():
             break
 
 
-main()
+if __name__ == '__main__':
+    goal_detection_app()
