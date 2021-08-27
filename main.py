@@ -5,7 +5,7 @@ from logicMethods import *
 
 def goal_detection_app():
 
-    cap = cv2.VideoCapture("C:\\Users\\benla\\Downloads\\demo16.mp4")
+    cap = cv2.VideoCapture("demo16.mp4")
     is_first_frame = True
     while True:
         success, frame = cap.read()
