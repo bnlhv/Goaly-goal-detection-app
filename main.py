@@ -1,59 +1,63 @@
-"""this module is main entry point of this app"""
+"""This module is main run the GUI of this app"""
 
-from logicMethods import *
-
-
-def goal_detection_app():
-    cap = cv2.VideoCapture("demo18.mp4")
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    # FPS = cap.get(cv2.CAP_PROP_FPS)
-
-    width = int(width / 3)
-    height = int(height / 3)
+import tkinter
+from tkinter import *
+from tkinter import filedialog
+from goalDetection import goal_detection_app
 
 
-    is_first_frame = True
+def open_file():
+    """
+    This function allow to user open file from pc
+    """
+    root.filename = filedialog.askopenfilename(initialdir="/", title="Select a video", filetypes=[("mp4", "*.mp4")])
+    path_label.config(text=root.filename)
+    button2 = Button(root, text="start", font=11, fg="blue", command=start_goal_detection, height=2, width=5)
+    button2.place(relx=0.5, rely=0.5, anchor='center')
+    button2.pack()
 
-    # fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    # file_name = 'output1.mp4'
-    # resolution = (width, height)
-    # video_output = cv2.VideoWriter(file_name, fourcc, FPS, resolution)
 
-    while True:
-        success, frame = cap.read()
-
-        if success:
-            frame = cv2.resize(frame, (width, height))
-            frame = frame[5: -5, 5: -5]
-            result = frame.copy()
-
-            if is_first_frame:
-                r, theta = get_goal_lines(cv2.Canny(frame.copy(), 50, 150),
-                                          threshold_for_lines=200)
-                is_first_frame = False
-
-            draw_line(result, theta, r)
-            ball_mask = get_ball_mask(frame.copy())
-            center, radius = get_center_and_radius(ball_mask.copy())
-
-            if radius > 15:
-                draw_ball(center, radius, result)
-                goal = is_goal(center, radius, r, theta, left_to_right=True)
-                add_text_to_screen(result, goal)
-
-            # video_output.write(result)
-            cv2.imshow("Result", result)
-
-            k = cv2.waitKey(50) & 0xff
-            if k == 27:
-                break
-        else:
-            break
-    # video_output.release()
-    cap.release()
-    cv2.destroyAllWindows()
+def start_goal_detection():
+    """
+    This function run the goal detection algo
+    """
+    if left_to_right.get() == 1:
+        ltr = True
+    elif left_to_right.get() == 2:
+        ltr = False
+    else:
+        ltr = None
+    goal_detection_app(root.filename, ltr)
 
 
 if __name__ == '__main__':
-    goal_detection_app()
+    root = Tk()
+    root.title("GOALY")
+    root.iconbitmap("goaly.ico")
+    root.geometry('500x300')
+    root.eval('tk::PlaceWindow . center')
+
+    top_frame = Frame(root)
+    top_frame.pack()
+    bottom_frame = Frame(root)
+    bottom_frame.pack(side=BOTTOM)
+
+    path_label = tkinter.Label(bottom_frame, bg="white", width=50, text='  ', font=("Courier", 8))
+    path_label.pack(side=LEFT)
+
+    button1 = Button(bottom_frame, text="Open A Video", fg="red", command=open_file, font=4)
+    button1.pack(side=RIGHT)
+
+    left_to_right = tkinter.IntVar()
+    left_to_right.set(1)
+
+    label = tkinter.Label(root, width=40, text='Select the direction of the goal :', font=4)
+    label.pack()
+
+    Radiobutton(root, text='Left to right', font=3, variable=left_to_right,
+                command=lambda: left_to_right.set(1), value=1).pack()
+
+    Radiobutton(root, text='Right to left', font=3, variable=left_to_right,
+                command=lambda: left_to_right.set(2), value=2).pack()
+
+    root.mainloop()
