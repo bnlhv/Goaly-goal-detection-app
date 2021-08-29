@@ -1,7 +1,6 @@
-import math
-
-import cv2
-import numpy as np
+"""
+this module is responsible for all the drawing functions
+"""
 
 from logicMethods import *
 

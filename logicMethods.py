@@ -2,16 +2,18 @@
 this module is responsible for all the logic functions
 """
 
-from typing import Any, List, Union, Optional
+from typing import Any, List, Union, Optional, Tuple
 import cv2
 import numpy as np
 import math
 import imutils
+from numpy import ndarray
+
 from drawingMethods import *
 from matplotlib import pyplot as plt
 
 # these are HSV mask values for ball detection
-COLOR_MIN = np.array([0, 115, 50], np.uint8)
+COLOR_MIN = np.array([0, 120, 50], np.uint8)
 COLOR_MAX = np.array([7, 255, 255], np.uint8)
 
 
@@ -22,16 +24,6 @@ def empty(a: Any) -> None:
     :param a: optional param
     """
     pass
-
-
-def open_parameters_config_window() -> None:
-    """ this function is for new window with trackbars which are responsible for app thresholds etc. """
-
-    cv2.namedWindow("Parameters")
-    cv2.resizeWindow("Parameters", (640, 120))
-    cv2.createTrackbar("Threshold1", "Parameters", 50, 255, empty)
-    cv2.createTrackbar("Threshold2", "Parameters", 150, 255, empty)
-    cv2.createTrackbar("Area", "Parameters", 1300, 15000, empty)
 
 
 def is_line_horizontal(is_goal_horizontal: bool, theta: float) -> bool:
@@ -51,20 +43,7 @@ def is_line_horizontal(is_goal_horizontal: bool, theta: float) -> bool:
     )
 
 
-# def is_line_vertical(is_goal_horizontal: bool, theta: float) -> bool:
-#     """
-#         this function returns a value that detects if the line we found is vertical
-#
-#         :param is_goal_horizontal: bool value, what the user entered
-#         :param theta: the angle in pi values
-#         :return: boolean
-#         """
-#     # if the degree of the line is vertical return true
-#     return np.logical_and(not is_goal_horizontal, np.logical_or(0.4 * np.pi <= theta <= 0.6 * np.pi,
-#                                                                 1.4 * np.pi <= theta <= 1.6 * np.pi))
-
-
-def my_hough_lines(canny_frame: np.ndarray) -> Union[np.ndarray, int, float]:
+def my_hough_lines(canny_frame: np.ndarray) -> Tuple[ndarray, ndarray, ndarray]:
     """
     this function finds the accumulator matrix and from it we can collect the lines by threshold
 
@@ -74,8 +53,8 @@ def my_hough_lines(canny_frame: np.ndarray) -> Union[np.ndarray, int, float]:
 
     w, h = canny_frame.shape
     r_max: int = int(np.sqrt(w ** 2 + h ** 2))
-    rho_list: list = np.arange(-r_max, r_max)
-    theta_list: list = np.arange(np.pi, step=np.pi / 180)
+    rho_list: np.ndarray = np.arange(-r_max, r_max)
+    theta_list: np.ndarray = np.arange(np.pi, step=np.pi / 180)
 
     # Hough accumulator array of theta vs rho
     H: np.ndarray = np.zeros((len(rho_list), len(theta_list)), dtype=np.uint64)  # accumulator matrix
@@ -98,18 +77,18 @@ def my_hough_lines(canny_frame: np.ndarray) -> Union[np.ndarray, int, float]:
 
 
 # todo: why not np.argmax?
-def most_frequent(lst: List) -> int:
+def most_frequent(arr: list) -> int:
     """
     this function find the most frequent element
 
-    :param lst:list
+    :param arr:list
     :return: most frequent element
     """
     counter: int = 0
-    num: int = lst[0]
+    num: int = arr[0]
 
-    for i in lst:
-        curr_frequency = lst.count(i)
+    for i in arr:
+        curr_frequency = arr.count(i)
         # print(curr_frequency)
         if curr_frequency > counter:
             counter = curr_frequency
@@ -118,7 +97,7 @@ def most_frequent(lst: List) -> int:
     return num
 
 
-def merge_lines(rho: np.ndarray, theta: np.ndarray, left_to_right: bool) -> Union[int, float]:
+def merge_lines(rho: list, theta: list, left_to_right: bool) -> Tuple[float, float]:
     """
     get several lines that could be a goal line and merge them to one to find out if goal
 
@@ -128,12 +107,12 @@ def merge_lines(rho: np.ndarray, theta: np.ndarray, left_to_right: bool) -> Unio
     :return: the rho, theta combination for 1 line
     """
     if np.logical_and(len(rho) == 1, len(theta) == 1):
-        return rho, theta
+        return float(rho[0]), float(theta[0])
 
-    most_common_t: int = most_frequent(theta)
+    most_common_t: float = most_frequent(theta)
 
     for i, value in enumerate(theta):
-        if value != most_common_t:  # somthing went worng here because there is values in t that not equal to most_coomon_t
+        if value != most_common_t:
             theta.remove(value)
             rho.remove(rho[i])
 
@@ -145,16 +124,19 @@ def merge_lines(rho: np.ndarray, theta: np.ndarray, left_to_right: bool) -> Unio
     else:
         new_r = minimum
 
-    return new_r, most_common_t
+    return float(new_r), float(most_common_t)
 
 
-def get_lines_from_accumulator(H, r_array, t_array, threshold_for_lines) -> Union[int, float]:
+def get_line_from_accumulator(H: ndarray, r_array: ndarray, t_array: ndarray, threshold_for_lines: int,
+                              left_to_right: bool) -> Optional[
+    Tuple[float, float]]:
     """
     this function return the rhos and thetas which higher than treshold_for_lines
 
+    :param left_to_right: goal direction
     :param H: np.ndarray ,the accumulator matrix
-    :param r_array: list of rhos
-    :param t_array: list of thetas
+    :param r_array: ndarray of rhos
+    :param t_array: ndarray of thetas
     :param threshold_for_lines: int , Sets the threshold for the lines
     :return:
     """
@@ -167,14 +149,17 @@ def get_lines_from_accumulator(H, r_array, t_array, threshold_for_lines) -> Unio
         if H[y, x] >= threshold_for_lines:
             r.append(r_array[y])
             t.append(t_array[x])
-    rho, theta = merge_lines(r, t, left_to_right=True)
+    rho, theta = merge_lines(r, t, left_to_right)
+
     return rho, theta
 
 
-def get_goal_lines(frame_canny, threshold_for_lines):
+def get_goal_lines(frame_canny: ndarray, threshold_for_lines: int, left_to_right: bool) -> Optional[
+    Tuple[float, float]]:
     """
     this function return rho, theta of the goal line
 
+    :param left_to_right:
     :param frame_canny: np.ndarray of edges
     :param threshold_for_lines: int , Sets the threshold for the lines
 
@@ -184,10 +169,10 @@ def get_goal_lines(frame_canny, threshold_for_lines):
 
     H, r_array, t_array = my_hough_lines(frame_canny)
 
-    return get_lines_from_accumulator(H, r_array, t_array, threshold_for_lines)
+    return get_line_from_accumulator(H, r_array, t_array, threshold_for_lines, left_to_right)
 
 
-def get_center_and_radius(mask) -> Union[(int, int), float]:
+def get_center_and_radius(mask) -> [(int, int), float]:
     """
     this function recognize the center and the radius of the ball
 
@@ -211,7 +196,7 @@ def get_center_and_radius(mask) -> Union[(int, int), float]:
 
 
 def erode_and_dilate(frame: np.ndarray, dilation_iterations: int, erode_iterations: int,
-                     kernel_size: int) -> np.ndarray:
+                     kernel_size: int) -> Optional[ndarray]:
     """
     this function dose dilation_iterations times cv2.erode()  and erode_iterations times tomes cv2.dilate()
 
@@ -229,7 +214,7 @@ def erode_and_dilate(frame: np.ndarray, dilation_iterations: int, erode_iteratio
     return frame_dilated
 
 
-def get_ball_mask(frame: np.ndarray) -> np.ndarray:
+def get_ball_mask(frame: np.ndarray) -> Optional[ndarray]:
     """
     get the original frame and return mask the helps to find the ball
 
@@ -242,7 +227,6 @@ def get_ball_mask(frame: np.ndarray) -> np.ndarray:
     hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, COLOR_MIN, COLOR_MAX)
     mask = erode_and_dilate(mask, 2, 2, 5)
-    cv2.imshow("mask2", mask)
     return mask
 
 
@@ -257,9 +241,6 @@ def is_goal(center: (int, int), radius: float, r: int, theta: float, left_to_rig
     :param left_to_right: if True it is mean the goal come from left to right, if False its means the opposite
     :return: goal or no goal
     """
-    if isinstance(r, List):
-        r = r[0]
-        theta = theta[0]
 
     a = math.cos(theta)
     b = math.sin(theta)
