@@ -1,11 +1,12 @@
 """ This Module is responsible for the view - User Interface """
 
-from tkinter import Tk, filedialog, Button, Frame, Radiobutton, Label, IntVar, BOTTOM, LEFT, RIGHT
+from tkinter import (Tk, filedialog, Button, Frame, Radiobutton, Label, IntVar, BOTTOM, LEFT, RIGHT,)
 from app import app
 
 # Global variables for this python file
 root = Tk()
 left_to_right = IntVar()
+path_label: Label = Label()
 
 
 def open_file() -> None:
@@ -13,7 +14,7 @@ def open_file() -> None:
     This function allow to user open file from pc
     """
     root.filename = filedialog.askopenfilename(initialdir="/", title="Select a video", filetypes=[("mp4", "*.mp4")])
-    filedialog.path_label.config(text=root.filename)
+    path_label.config(text=root.filename)
     button2 = Button(root, text="start", font=11, fg="blue", command=start_goal_detection, height=2, width=5)
     button2.place(relx=0.5, rely=0.5, anchor='center')
     button2.pack()

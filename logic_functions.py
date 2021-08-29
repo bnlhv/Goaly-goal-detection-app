@@ -81,7 +81,10 @@ def most_frequent(arr: list) -> int:
     :return: most frequent element
     """
     counter: int = 0
-    num: int = arr[0]
+    try:
+        num: int = arr[0]
+    except Exception as ex:
+        num = arr
 
     for i in arr:
         curr_frequency = arr.count(i)
