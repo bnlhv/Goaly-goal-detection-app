@@ -1,41 +1,63 @@
-from methods import *
+"""This module is main run the GUI of this app"""
+
+import tkinter
+from tkinter import *
+from tkinter import filedialog
+from goalDetection import goal_detection_app
 
 
-def main():
-    open_parameters_config_window()
-    cap = cv2.VideoCapture("demo4.mp4")
-    flag = True
-    while True:
-        success, frame = cap.read()
-
-        if success:
-            frame = cv2.resize(frame, (360, 640))
-            result = frame.copy()
-
-            threshold1 = cv2.getTrackbarPos("Threshold1", "Parameters")
-            threshold2 = cv2.getTrackbarPos("Threshold2", "Parameters")
-
-            frame_canny = get_canny_frame(frame.copy(), threshold1, threshold2)
-
-            ball_area = get_ball_contours(frame_canny.copy(), result)
-            if (flag):
-                r, t = get_goal_lines(result, cv2.Canny(frame.copy(), threshold1, threshold2), is_goal_horizontal=True,
-                                      threshold_for_lines=200)
-                print(r)
-                print(t)
-                flag = False
-
-            draw_goal_lines(r, t, result, is_goal_horizontal=True)
-
-            add_text_to_screen(result, ball_area)
-
-            cv2.imshow("Result", result)
-
-            k = cv2.waitKey(1) & 0xff
-            if k == 27:
-                break
-        else:
-            break
+def open_file():
+    """
+    This function allow to user open file from pc
+    """
+    root.filename = filedialog.askopenfilename(initialdir="/", title="Select a video", filetypes=[("mp4", "*.mp4")])
+    path_label.config(text=root.filename)
+    button2 = Button(root, text="start", font=11, fg="blue", command=start_goal_detection, height=2, width=5)
+    button2.place(relx=0.5, rely=0.5, anchor='center')
+    button2.pack()
 
 
-main()
+def start_goal_detection():
+    """
+    This function run the goal detection algo
+    """
+    if left_to_right.get() == 1:
+        ltr = True
+    elif left_to_right.get() == 2:
+        ltr = False
+    else:
+        ltr = None
+    goal_detection_app(root.filename, ltr)
+
+
+if __name__ == '__main__':
+    root = Tk()
+    root.title("GOALY")
+    root.iconbitmap("goaly.ico")
+    root.geometry('500x300')
+    root.eval('tk::PlaceWindow . center')
+
+    top_frame = Frame(root)
+    top_frame.pack()
+    bottom_frame = Frame(root)
+    bottom_frame.pack(side=BOTTOM)
+
+    path_label = tkinter.Label(bottom_frame, bg="white", width=50, text='  ', font=("Courier", 8))
+    path_label.pack(side=LEFT)
+
+    button1 = Button(bottom_frame, text="Open A Video", fg="red", command=open_file, font=4)
+    button1.pack(side=RIGHT)
+
+    left_to_right = tkinter.IntVar()
+    left_to_right.set(1)
+
+    label = tkinter.Label(root, width=40, text='Select the direction of the goal :', font=4)
+    label.pack()
+
+    Radiobutton(root, text='Left to right', font=3, variable=left_to_right,
+                command=lambda: left_to_right.set(1), value=1).pack()
+
+    Radiobutton(root, text='Right to left', font=3, variable=left_to_right,
+                command=lambda: left_to_right.set(2), value=2).pack()
+
+    root.mainloop()
