@@ -39,7 +39,7 @@ def app(file_path, left_to_right):
                 draw_ball(center, radius, result)
                 goal = is_goal(center, radius, r, theta, left_to_right=left_to_right)
                 add_text_to_screen(result, goal)
-            print(radius)
+
             cv2.imshow("Result", result)
 
             k = cv2.waitKey(50) & 0xff
