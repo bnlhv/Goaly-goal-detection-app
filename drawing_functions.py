@@ -2,7 +2,8 @@
 this module is responsible for all the drawing functions
 """
 
-from logicMethods import *
+from logic_functions import *
+from typing import List
 
 
 def draw_line(frame: np.ndarray, theta: List, rho: float) -> None:

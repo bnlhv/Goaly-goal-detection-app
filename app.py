@@ -2,10 +2,13 @@
 this module is responsible for goal detection
 """
 
-from logicMethods import *
+from logic_functions import get_goal_lines, get_ball_mask, get_center_and_radius, is_goal
+from drawing_functions import draw_line, draw_ball, add_text_to_screen
+import numpy as np
+import cv2
 
 
-def goal_detection_app(file_path, left_to_right):
+def app(file_path, left_to_right):
     cap = cv2.VideoCapture(file_path)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
