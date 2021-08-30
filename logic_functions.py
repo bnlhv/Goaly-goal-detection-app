@@ -239,7 +239,7 @@ def is_goal(center: (int, int), radius: float, r: int, theta: float, left_to_rig
     """
     a, b = math.cos(theta), math.sin(theta)
     x0, y0 = a * r, b * r
-    pt1, pt2 = int(x0 + 1000 * (-b)), int(y0 + 1000 * a), int(x0 - 1000 * (-b)), int(y0 - 1000 * a)
+    pt1, pt2 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * a)), (int(x0 - 1000 * (-b)), int(y0 - 1000 * a))
     x1, y1 = pt1
     x2, y2 = pt2
     x_center, y_center = center
